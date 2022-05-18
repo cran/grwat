@@ -1,0 +1,157 @@
+---
+params:
+    name: "Protva"
+    sep: NULL
+    vars: NULL
+    locale: "EN"
+    year: 1978
+    exclude: NULL
+    fixedyear: false
+    temp: false
+    prec: false
+    span: 5
+    eol: "\n"
+date: "`r Sys.Date()`"
+title: "`r tools::file_path_sans_ext(basename(params$name))`"
+author: "`r switch(params$locale, 'EN' = 'Report produced by grwat R package', 'RU' = 'Отчет подготовлен с помощью пакета R grwat', 'UA' = 'Звіт підготовлений за допомогою пакету')`"
+output: 
+  html_document:
+    # toc: true
+    # number_sections: true
+    # toc_float:
+    #   collapsed: false
+    #   smooth_scroll: false
+documentclass: report
+classoption: landscape
+geometry: "left=1cm,right=1cm,top=1cm,bottom=2cm"
+header-includes:
+   #- \usepackage[T2A]{fontenc}
+   - \usepackage[utf8]{inputenc}
+   #- \usepackage[russian]{babel}
+   - \usepackage[fontsize=16pt]{scrextend}
+   - \usepackage[table]{xcolor}
+   - \usepackage{longtable}
+   - \usepackage{booktabs}
+#mainfont: Open Sans
+---
+
+<!-- Settings -->
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(include=FALSE)
+
+library(grwat)
+gr_set_locale(params$locale)
+```
+
+# {.tabset}
+```{r, include=TRUE, warning=FALSE, message=FALSE, }
+message('\nGenerating hydrograph separation report for ', params$name, '\n')
+```
+
+```{r, include=TRUE}
+if (params$locale == 'RU') {
+  knitr::asis_output("## Расчленение гидрографа {#separation}")
+} else if (params$locale == 'UA') {
+  knitr::asis_output("## Розчленування гідрографа {#separation}")
+} else {
+  knitr::asis_output("## Hydrograph separation {#separation}")
+}
+```
+
+
+```{r, include=TRUE, results='asis', warning=FALSE, message=FALSE, fig.height=8, fig.width=11}
+message(' > Plotting separation...\n')
+gr_plot_sep(params$sep, years = params$vars$Year, layout = matrix(c(1,2,3,4), nrow=2, byrow=TRUE),
+                   temp = params$temp, prec = params$prec, span = params$span,
+                   pagebreak = FALSE)
+```
+
+<!-- Main plots -->
+```{r, include=TRUE}
+if (params$locale == 'RU') {
+  knitr::asis_output("## Межгодичные изменения {#interannual}")
+} else if (params$locale == 'UA') {
+  knitr::asis_output("## Міжрічні зміни {#interannual}")
+} else {
+  knitr::asis_output("## Interannual changes {#interannual}")
+}
+```
+
+
+```{r, include=TRUE, results='asis', warning=FALSE, message=FALSE, fig.height=8, fig.width=11}
+message(' > Testing variables...\n')
+tests = gr_test_vars(vars, 
+                    year = params$year, 
+                    exclude = params$exclude)
+
+message(' > Plotting interannual changes...\n')
+gr_plot_vars(vars, 
+            exclude = params$exclude,
+            tests = tests,
+            layout = matrix(c(1,2,3,4), nrow=2, byrow=TRUE),
+            pagebreak = FALSE)
+```
+
+```{r, include=TRUE}
+if (params$locale == 'RU') {
+  knitr::asis_output("## Долгопериодные изменения {#longterm}")
+} else if (params$locale == 'UA') {
+  knitr::asis_output("## Довгоперіодні зміни {#longterm}")
+} else {
+  knitr::asis_output("## Long-term changes {#longterm}")
+}
+```
+
+
+```{r, fig.height=8, fig.width=11, warning=FALSE, include = TRUE, results='asis', echo=FALSE, message=FALSE}
+message(' > Plotting long-term changes...\n')
+gr_plot_minmonth(vars, 
+                year = params$year, 
+                exclude = params$exclude, 
+                tests = tests,
+                pagebreak = FALSE)
+```
+```{r, fig.height=8, fig.width=11, warning=FALSE, include = TRUE, results='asis', echo=FALSE, message=FALSE}
+gr_plot_periods(vars,
+               exclude = params$exclude,
+               tests = tests,
+               layout = matrix(1:8, nrow=4, byrow=TRUE),
+               pagebreak = FALSE)
+```
+
+<!-- Stats -->
+```{r, include=TRUE}
+if (params$locale == 'RU') {
+  knitr::asis_output("## Матрица расходов {#matrix}")
+} else if (params$locale == 'UA') {
+  knitr::asis_output("## Матриця витрат {#matrix}")
+} else {
+  knitr::asis_output("## Runoff matrices {#matrix}")
+}
+```
+
+```{r, fig.height=5, fig.width=10, warning=FALSE, include = TRUE, results='asis', echo=FALSE, message=FALSE}
+message(' > Plotting runoff matrices...\n')
+gr_plot_matrix(sep, type = 'runoff')
+gr_plot_matrix(sep, type = 'season')
+gr_plot_matrix(sep, type = 'component')
+```
+
+<!-- Stats -->
+```{r, include=TRUE}
+if (params$locale == 'RU') {
+  knitr::asis_output("## Тесты {#tests}")
+} else if (params$locale == 'UA') {
+  knitr::asis_output("## Тести {#tests}")
+} else {
+  knitr::asis_output("## Statistical tests {#tests}")
+}
+```
+
+<!-- Knit table to PDF -->
+```{r, include = TRUE, results='asis', warning=FALSE, message=FALSE}
+message(' > Kabling statistical tests...\n')
+gr_kable_tests(tests, format = 'html')
+gr_plot_tests(tests)
+```
