@@ -1,3 +1,9 @@
+utils::globalVariables(c(
+  'ACF', 'Date', 'Datefake', 'Dsmin', 'Dwmin', 'Name', 'nydate', 'Period', 'Prec', 'Preccum', 'Q', 'Qbase', 'Qfake',
+  'Qrain', 'Qspri', 'Runoff', 'Runtype', 'Temp', 'Typefake', 'Value', 'Year', 'Year1', 'Yearfake',
+  'duration', 'n', 'old_summer', 'old_winter', 'perc', 'summermonth', 'wintermonth', 'y', 'year')
+)
+
 #' Plot hydrograph separation
 #' 
 #' The function plots river hydrograph by filling the different flow types using colors. Matrix layouts can be used if multiple plots are needed. Temperature and precipitation can be overlaid.
@@ -44,18 +50,18 @@ gr_plot_sep <- function(df, years = NULL, layout = as.matrix(1),
   if (grenv$loc != 'EN')
     labs = gr_unescape(labs)
   
-  df = df %>% dplyr::mutate(Year = lubridate::year(.data$Date))
+  df = df %>% dplyr::mutate(Year = lubridate::year(Date))
   
   if(!is.null(years)){
-    df = df %>% dplyr::filter(.data$Year %in% unique(c(years, years + 1)))
+    df = df %>% dplyr::filter(Year %in% unique(c(years, years + 1)))
   } else {
-    years = df %>% dplyr::pull(.data$Year) %>% unique() %>% order() 
+    years = df %>% dplyr::pull(Year) %>% unique() %>% sort() 
   }
   
   yrs = df %>% dplyr::group_by(.data$Year) %>% 
-    dplyr::summarise(nydate = .data$Date[which(.data$Qspri>0)[1]],
-                     dspend = max(.data$Date[which(.data$Qspri>0)])) %>% 
-    dplyr::filter(!is.na(.data$nydate))
+    dplyr::summarise(nydate =Date[which(Qspri>0)[1]],
+                     dspend = max(Date[which(Qspri>0)])) %>% 
+    dplyr::filter(!is.na(nydate))
   
   n = nrow(yrs)
   
@@ -65,10 +71,8 @@ gr_plot_sep <- function(df, years = NULL, layout = as.matrix(1),
   
   max.prec = max(df$Prec, na.rm = TRUE)
   if (prec && (span > 1)) {
-    df = dplyr::mutate(df, Preccum = zoo::rollapply(.data$Prec, span, sum, align = 'right', fill = NA))
+    df = dplyr::mutate(df, Preccum = zoo::rollapply(Prec, span, sum, align = 'right', fill = NA))
     max.prec = max(df$Preccum, na.rm = TRUE)
-    # print("YEAH!!!")
-    # print(max.prec)
   }
   
   
@@ -79,15 +83,16 @@ gr_plot_sep <- function(df, years = NULL, layout = as.matrix(1),
   plotlist = list()
   j = 1
   
-  bar = progress::progress_bar$new(total = n)
-  bar$tick(0)
+  cli::cli_progress_bar('Plotting separation', total = n)  
   
   for (i in 1:n) {
     
-    if (!(yrs$Year[i] %in% years)) 
+    if (!(yrs$Year[i] %in% years)) {
+      cli::cli_progress_update()
       next
+    }
     
-    bar$tick()
+    # bar$tick()
     
     begin.date = yrs$nydate[i]
     
@@ -116,10 +121,10 @@ gr_plot_sep <- function(df, years = NULL, layout = as.matrix(1),
       dplyr::filter(dplyr::between(.data$Date, begin.date-1, end.date))
     
     graphdata = yeardata %>% 
-      tidyr::pivot_longer(c(.data$Qthaw, .data$Qrain, .data$Qspri, .data$Qbase),
+      tidyr::pivot_longer(c(.data$Qthaw,Qrain,Qspri,Qbase),
                           names_to = "Runtype", values_to = "Runoff") %>%
                           # factor_key=TRUE) %>% 
-      dplyr::mutate(Runoff = ifelse(.data$Runoff < 0, 0, .data$Runoff))
+      dplyr::mutate(Runoff = ifelse(.data$Runoff < 0, 0,Runoff))
     
     graphdata$Runtype = factor(graphdata$Runtype,
                                levels = c("Qrain", "Qspri", "Qthaw", "Qbase"),
@@ -131,7 +136,7 @@ gr_plot_sep <- function(df, years = NULL, layout = as.matrix(1),
                ymax = max.runoff, ymin = 0,
                fill = 'black',
                alpha = 0.1) +
-      ggplot2::geom_area(data = graphdata, mapping = ggplot2::aes(x = .data$Date, y = .data$Runoff, fill = .data$Runtype),
+      ggplot2::geom_area(data = graphdata, mapping = ggplot2::aes(x =Date, y =Runoff, fill =Runtype),
                          size = 0.1, color = 'black', na.rm = TRUE) + 
       # geom_line(aes(group = Runtype), size = 0.1, color = 'black') +
       ggplot2::coord_cartesian(ylim = c(0, max.runoff), clip = 'off') +
@@ -150,36 +155,36 @@ gr_plot_sep <- function(df, years = NULL, layout = as.matrix(1),
             ggplot2::scale_y_continuous(sec.axis = ggplot2::sec_axis(~ . * coef_prec, 
                                                                      name = paste0(labs$preccum, ' (', span, ' ',  labs$day, ')'))) +
             ggplot2::geom_line(data = yeardata,
-                               mapping = ggplot2::aes(x = .data$Date, y = .data$Preccum / coef_prec),
+                               mapping = ggplot2::aes(x =Date, y =Preccum / coef_prec),
                                color = 'springgreen1', size = 0.5, na.rm = TRUE)
         } else {
           g = g +
             ggplot2::scale_y_continuous(sec.axis = ggplot2::sec_axis(~ . * coef_prec, name = labs$prec)) +
             ggplot2::geom_line(data = yeardata,
-                               mapping = ggplot2::aes(x = .data$Date, y = .data$Prec / coef_prec),
+                               mapping = ggplot2::aes(x =Date, y =Prec / coef_prec),
                                color = 'springgreen1', size = 0.5, na.rm = TRUE)
         }
     }
     
     if (temp) {
         yeardata = dplyr::mutate(yeardata, 
-                                 Negat = ifelse(.data$Temp < 0, .data$Temp, NA),
-                                 Posit = ifelse(.data$Temp > 0, .data$Temp, NA))
+                                 Negat = ifelse(.data$Temp < 0,Temp, NA),
+                                 Posit = ifelse(.data$Temp > 0,Temp, NA))
         g = g +
           ggplot2::geom_line(data = yeardata,
-                             mapping = ggplot2::aes(x = .data$Date, 
+                             mapping = ggplot2::aes(x =Date, 
                                                     y = (.data$Temp - min.temp) / coef_temp),
                              color = 'purple',
                              size = 0.5, 
                              na.rm = TRUE) +
           ggplot2::geom_line(data = yeardata,
-                             mapping = ggplot2::aes(x = .data$Date, 
+                             mapping = ggplot2::aes(x =Date, 
                                                     y = (.data$Posit - min.temp) / coef_temp),
                              color = 'red',
                              size = 0.5,
                              na.rm = TRUE) +
           ggplot2::geom_line(data = yeardata,
-                             mapping = ggplot2::aes(x = .data$Date, 
+                             mapping = ggplot2::aes(x =Date, 
                                                     y = (.data$Negat - min.temp) / coef_temp),
                              color = 'blue',
                              size = 0.5,
@@ -197,12 +202,12 @@ gr_plot_sep <- function(df, years = NULL, layout = as.matrix(1),
       ggplot2::geom_label(data = data.frame(x = dspstart, 
                                             y = 0.9 * max.runoff, 
                                             text = format(dspstart, format="%d-%m")),
-                          mapping = ggplot2::aes(.data$x, .data$y, label = .data$text, hjust = 1),
+                          mapping = ggplot2::aes(.data$x,y, label =text, hjust = 1),
                           size = 3, fill = "white", label.padding = ggplot2::unit(0.15, "lines")) +
       ggplot2::geom_label(data = data.frame(x = dspend, 
                                             y = 0.9 * max.runoff, 
                                             text = format(dspend, format="%d-%m")),
-                          mapping = ggplot2::aes(.data$x, .data$y, label = .data$text, hjust = 0),
+                          mapping = ggplot2::aes(.data$x,y, label =text, hjust = 0),
                           size = 3, fill = "white", label.padding = ggplot2::unit(0.15, "lines"))
     
     plotlist[[j]] = g
@@ -214,12 +219,18 @@ gr_plot_sep <- function(df, years = NULL, layout = as.matrix(1),
       plotlist = list()
       j = 1
     }
+    
+    cli::cli_progress_update()
+    
   }
   
   if (j > 1) {
     if (print) multiplot(plotlist = plotlist, layout = layout)
     allplotlist = c(allplotlist, plotlist)
+    cli::cli_progress_update()
   }
+  
+  cli::cli_progress_done()
   
   invisible(allplotlist)
 }
@@ -280,7 +291,7 @@ gr_plot_vars <- function(df, ..., tests = NULL, exclude = NULL, smooth = TRUE,
   
   prms = params_out %>% 
     dplyr::filter(.data$Name %in% fields) %>% 
-    dplyr::slice(match(fields, .data$Name))
+    dplyr::slice(match(fields,Name))
   
   if (is.logical(tests))
     if (tests == TRUE)
@@ -314,14 +325,13 @@ gr_plot_vars <- function(df, ..., tests = NULL, exclude = NULL, smooth = TRUE,
   plotlist = list()
   j = 1
   
+  
   nn = nrow(prms)
-  bar = progress::progress_bar$new(total = nn)
-  bar$tick(0)
+  cli::cli_progress_bar('Plotting variables', total = nn) 
   
   for (i in 1:nn) {
     
-    bar$tick()
-    #Sys.sleep(0.01)
+    cli::cli_progress_update()
     
     # MAIN DATA FOR PLOTTING
     g = ggplot2::ggplot(df, ggplot2::aes_string(x = "Year1", y = prms$Name[i])) + 
@@ -441,6 +451,8 @@ gr_plot_vars <- function(df, ..., tests = NULL, exclude = NULL, smooth = TRUE,
     allplotlist = c(allplotlist, plotlist)
   }
   
+  cli::cli_progress_done()
+  
   invisible(allplotlist)
 }
 
@@ -503,7 +515,7 @@ gr_plot_periods <- function(df, ..., year = NULL, exclude = NULL, tests = NULL,
   
   prms = params_out %>% 
     dplyr::filter(.data$Name %in% fields) %>% 
-    dplyr::slice(match(fields, .data$Name))
+    dplyr::slice(match(fields,Name))
   
   if (is.logical(tests))
     if (tests == TRUE)
@@ -527,12 +539,11 @@ gr_plot_periods <- function(df, ..., year = NULL, exclude = NULL, tests = NULL,
   j = 1
   
   nn = nrow(prms)
-  bar = progress::progress_bar$new(total = nn)
-  bar$tick(0)
+  cli::cli_progress_bar('Plotting periods', total = nn)
   
   for (i in 1:nn) {
     
-    bar$tick()
+    cli::cli_progress_update()
     
     if(!is.null(tests)){
       year = tests$year[i]
@@ -570,7 +581,7 @@ gr_plot_periods <- function(df, ..., year = NULL, exclude = NULL, tests = NULL,
                                    rep(periodtitle2, n2)))
     
     g = ggplot2::ggplot() + 
-      ggplot2::geom_boxplot(data = df.plot, ggplot2::aes(x = .data$Period, y = .data$Value)) +
+      ggplot2::geom_boxplot(data = df.plot, ggplot2::aes(x =Period, y =Value)) +
       ggplot2::coord_flip() +
       ggplot2::labs(title = stringr::str_wrap(desc[i], width = labs$wraplength),
            x = NULL, 
@@ -594,8 +605,8 @@ gr_plot_periods <- function(df, ..., year = NULL, exclude = NULL, tests = NULL,
       rsd2 = round(sd(d2, na.rm = TRUE)/m2, 3)
       
       means <- df.plot %>% 
-        dplyr::group_by(.data$Period) %>% 
-        dplyr::summarise(Value = mean(.data$Value, na.rm = TRUE))
+        dplyr::group_by(Period) %>% 
+        dplyr::summarise(Value = mean(Value, na.rm = TRUE))
       
       mean1 = ifelse(is_date, 
                      m1 %>% as.integer() %>% as.Date(origin = '1970-01-01') %>% format("%d-%b"),
@@ -619,7 +630,7 @@ gr_plot_periods <- function(df, ..., year = NULL, exclude = NULL, tests = NULL,
                          Period = c(periodtitle1, periodtitle2))
       
       g = g + 
-        ggplot2::geom_point(data = pt.df, ggplot2::aes(x = .data$Period, y = .data$Value), colour="steelblue", shape=20, size=3) +
+        ggplot2::geom_point(data = pt.df, ggplot2::aes(x =Period, y =Value), colour="steelblue", shape=20, size=3) +
         ggplot2::labs(subtitle = paste0(labs$student.t, ' = ', ifelse(is.null(tests$tt[[i]]), 'NA',
                                                              round(tests$tt[[i]]$statistic, 3)), ', ',
                                labs$label.p, ' = ', ifelse(is.null(tests$tt[[i]]), 'NA', 
@@ -656,6 +667,8 @@ gr_plot_periods <- function(df, ..., year = NULL, exclude = NULL, tests = NULL,
     if (print) multiplot(plotlist = plotlist, layout = layout)
     allplotlist = c(allplotlist, plotlist)
   }
+  
+  cli::cli_progress_done()
   
   invisible(allplotlist)
   
@@ -722,13 +735,13 @@ gr_plot_minmonth <- function(df, year = NULL, exclude = NULL, tests = NULL, page
   periodtitle2_winter = paste0(labs$aftertitle, year_winter)
   
   chart.data = df %>% 
-    dplyr::filter(!(.data$Year1 %in% exclude)) %>% 
-    dplyr::select(.data$Dsmin, .data$Dwmin, .data$Year1) %>% 
-    dplyr::filter(!is.na(.data$Dsmin) & !is.na(.data$Dwmin)) %>% 
-    dplyr::mutate(summermonth = lubridate::month(.data$Dsmin),
-                  wintermonth = lubridate::month(.data$Dwmin),
-                  old_summer = as.integer(.data$Year1 >= year_summer),
-                  old_winter = as.integer(.data$Year1 >= year_winter))
+    dplyr::filter(!(Year1 %in% exclude)) %>% 
+    dplyr::select(Dsmin, Dwmin, Year1) %>% 
+    dplyr::filter(!is.na(Dsmin) & !is.na(Dwmin)) %>% 
+    dplyr::mutate(summermonth = lubridate::month(Dsmin),
+                  wintermonth = lubridate::month(Dwmin),
+                  old_summer = as.integer(Year1 >= year_summer),
+                  old_winter = as.integer(Year1 >= year_winter))
   
   chart.data$old_summer = factor(chart.data$old_summer, 
                           levels = c(0,1), 
@@ -750,24 +763,24 @@ gr_plot_minmonth <- function(df, year = NULL, exclude = NULL, tests = NULL, page
                                    labels = winterlabels)
   
   df.summer = chart.data %>% 
-    dplyr::group_by(.data$old_summer, .data$summermonth) %>% 
+    dplyr::group_by(old_summer, summermonth) %>% 
     dplyr::tally() %>% 
     dplyr::ungroup() %>% 
-    tidyr::complete(.data$summermonth, .data$old_summer, fill = list(n=0)) %>%  
+    tidyr::complete(summermonth, old_summer, fill = list(n=0)) %>%  
     dplyr::mutate(perc = 100*.data$n/sum(.data$n))
   
   df.winter = chart.data %>% 
-    dplyr::group_by(.data$old_winter, .data$wintermonth) %>% 
+    dplyr::group_by(old_winter, wintermonth) %>% 
     dplyr::tally() %>% 
     dplyr::ungroup() %>% 
-    tidyr::complete(.data$wintermonth, .data$old_winter, fill = list(n=0)) %>%  
-    dplyr::mutate(perc = 100*.data$n/sum(.data$n))
+    tidyr::complete(wintermonth, old_winter, fill = list(n=0)) %>%  
+    dplyr::mutate(perc = 100*n/sum(n))
   
   df.summer.all = chart.data %>% 
-    dplyr::group_by(.data$summermonth) %>% 
+    dplyr::group_by(summermonth) %>% 
     dplyr::tally() %>% 
     dplyr::ungroup() %>%
-    dplyr::mutate(perc = 100*.data$n/sum(.data$n))
+    dplyr::mutate(perc = 100*n/sum(n))
   
   df.winter.all = chart.data %>% 
     dplyr::group_by(.data$wintermonth) %>% 
@@ -777,13 +790,13 @@ gr_plot_minmonth <- function(df, year = NULL, exclude = NULL, tests = NULL, page
   
   g.summer = ggplot2::ggplot() +
     ggplot2::geom_col(data = df.summer, 
-                      ggplot2::aes(x = .data$summermonth, y = .data$perc, fill = .data$old_summer), 
+                      ggplot2::aes(x = summermonth, y = perc, fill = old_summer), 
              position = "dodge") +
     ggplot2::geom_col(data = df.summer.all, 
-                      ggplot2::aes(x = .data$summermonth, y = .data$perc), 
+                      ggplot2::aes(x = summermonth, y = perc), 
              colour = "black", 
              fill = NA, 
-             size = 1) +
+             linewidth = 1) +
     ggplot2::theme(plot.title = ggplot2::element_text(face="bold")) +
     ggplot2::scale_x_discrete(drop = FALSE) +
     ggplot2::scale_fill_manual(values=c("indianred1", "deepskyblue4"), 
@@ -800,13 +813,13 @@ gr_plot_minmonth <- function(df, year = NULL, exclude = NULL, tests = NULL, page
   
   g.winter = ggplot2::ggplot() +
     ggplot2::geom_col(data = df.winter, 
-                      ggplot2::aes(x = .data$wintermonth, y = .data$perc, fill = .data$old_winter), 
+                      ggplot2::aes(x = wintermonth, y = perc, fill = old_winter), 
              position = "dodge") +
     ggplot2::geom_col(data = df.winter.all, 
-                      ggplot2::aes(x = .data$wintermonth, y = .data$perc), 
+                      ggplot2::aes(x =wintermonth, y =perc), 
              colour="black", 
              fill = NA, 
-             size = 1) +
+             linewidth = 1) +
     ggplot2::theme(plot.title = ggplot2::element_text(face="bold")) +
     ggplot2::scale_x_discrete(drop = FALSE) +
     ggplot2::scale_fill_manual(values=c("indianred1", "deepskyblue4"), 
@@ -878,8 +891,8 @@ gr_plot_tests <- function(tests, type = 'year', print = TRUE) {
   modeval = as.integer(dens$x[which.max(dens$y)])
   
   plt = ggplot2::ggplot() +    
-    ggplot2::geom_line(data = ddf, ggplot2::aes(x = .data$year, y = dens), color = 'black') +
-    ggplot2::geom_area(data = ddf, ggplot2::aes(x = .data$year, y = dens), alpha = 0.2) +
+    ggplot2::geom_line(data = ddf, ggplot2::aes(x =year, y = dens), color = 'black') +
+    ggplot2::geom_area(data = ddf, ggplot2::aes(x =year, y = dens), alpha = 0.2) +
     ggplot2::geom_vline(xintercept = modeval, color = "steelblue4", size = 1) +
     ggplot2::annotate("text", label = modeval, 
              x = modeval + 0.05 * (max(dens$x) - min(dens$x)), y = 0.01, 
@@ -916,7 +929,7 @@ gr_plot_acf <- function(hdata, autocorr = 0.7, maxlag = 30, print = TRUE) {
   
   max_period = hdata %>% 
     grwat::gr_get_gaps() %>% 
-    dplyr::filter(.data$type == 'data', .data$duration == max(.data$duration))
+    dplyr::filter(.data$type == 'data',duration == max(.data$duration))
   
   acf_data = hdata %>% 
     dplyr::rename(Date = 1) %>% 
@@ -929,7 +942,7 @@ gr_plot_acf <- function(hdata, autocorr = 0.7, maxlag = 30, print = TRUE) {
   
   days = min(which(afun$acf[,1,1] < autocorr, arr.ind = TRUE)) - 1
   
-  plt = ggplot2::ggplot(tab, ggplot2::aes(.data$Days, .data$ACF)) +
+  plt = ggplot2::ggplot(tab, ggplot2::aes(.data$Days,ACF)) +
     ggplot2::geom_line() +
     ggplot2::geom_point() +
     ggplot2::geom_hline(ggplot2::aes(yintercept = autocorr), 
@@ -938,7 +951,7 @@ gr_plot_acf <- function(hdata, autocorr = 0.7, maxlag = 30, print = TRUE) {
              x = 0, y = autocorr + 0.05,
              size = 4, colour = "red") +
     ggplot2::geom_vline(ggplot2::aes(xintercept = days), 
-                   color = 'blue', size = 1) +
+                   color = 'blue', linewidth = 1) +
     ggplot2::annotate("text", label = days,
              x = days + 1, y = 1,
              size = 4, colour = "blue") +
@@ -1007,8 +1020,8 @@ gr_plot_matrix <- function(df, years = NULL, type = 'runoff', print = TRUE) {
   
   if (type == 'runoff') {
     
-    plt = ggplot2::ggplot(tab, ggplot2::aes(.data$Datefake, .data$Yearfake)) +
-      ggplot2::geom_raster(ggplot2::aes(fill = .data$Q)) +
+    plt = ggplot2::ggplot(tab, ggplot2::aes(.data$Datefake,Yearfake)) +
+      ggplot2::geom_raster(ggplot2::aes(fill =Q)) +
       ggplot2::scale_fill_distiller(palette = "Blues", direction = 1, 
                                     na.value = "white") +
       ggplot2::scale_x_date(date_labels = date_labels,
@@ -1033,8 +1046,8 @@ gr_plot_matrix <- function(df, years = NULL, type = 'runoff', print = TRUE) {
                                            tab$Season == 1 ~ 'Summer',
                                            tab$Season == 2 ~ 'Winter'))
     
-    plt = ggplot2::ggplot(tab, ggplot2::aes(.data$Datefake, .data$Yearfake)) +
-      ggplot2::geom_raster(ggplot2::aes(fill = .data$Typefake)) +
+    plt = ggplot2::ggplot(tab, ggplot2::aes(.data$Datefake,Yearfake)) +
+      ggplot2::geom_raster(ggplot2::aes(fill =Typefake)) +
       ggplot2::scale_fill_manual(values = c('cadetblue1', 'coral', 'steelblue'),
                                  na.value = "white") +
       ggplot2::scale_x_date(date_labels = date_labels,
@@ -1065,8 +1078,8 @@ gr_plot_matrix <- function(df, years = NULL, type = 'runoff', print = TRUE) {
                                         tab$Qfake == 4 ~ 'Ground'), 
                        levels = c('Spring', 'Rain', 'Thaw', 'Ground'))
     
-    plt = ggplot2::ggplot(tab, ggplot2::aes(.data$Datefake, .data$Yearfake)) +
-      ggplot2::geom_raster(ggplot2::aes(fill = .data$Qfake)) +
+    plt = ggplot2::ggplot(tab, ggplot2::aes(.data$Datefake,Yearfake)) +
+      ggplot2::geom_raster(ggplot2::aes(fill =Qfake)) +
       ggplot2::scale_fill_manual(values=c("deepskyblue3", "coral2", 
                                           "darkturquoise", "bisque4"),
                                  na.value = "white") +
@@ -1088,7 +1101,8 @@ gr_plot_matrix <- function(df, years = NULL, type = 'runoff', print = TRUE) {
     invisible(plt)
     
   } else {
-    stop(crayon::white$bgRed$bold('grwat:'), ' ', crayon::white$italic(type), ' - unknown plot type')
+    stop(cli::col_white(cli::bg_red(cli::style_bold('grwat:'))), ' ', 
+         cli::style_italic(type), ' - unknown plot type')
   }
 }
 
@@ -1146,11 +1160,11 @@ gr_plot_ridge <- function(df, years, pal = 4, rev = FALSE, scale = 0.01, alpha =
 
   plt = ggplot2::ggplot(df_sel, 
                   ggplot2::aes(
-                    x = .data$Datefake, 
+                    x =Datefake, 
                     y = factor(.data$Year),
-                    height = .data$Q, 
+                    height =Q, 
                     group = factor(.data$Year), 
-                    fill = .data$Year
+                    fill =Year
                   )
                 ) + 
     ggridges::geom_ridgeline(scale = scale, alpha = alpha) +
@@ -1216,7 +1230,7 @@ gr_plot_hori <- function(df, years, pal = 'Blues', rev = TRUE, scale = 6, print 
                   Datefake = lubridate::ymd(20000101) + lubridate::yday(.data$Date)) %>%
     dplyr::filter(.data$Year %in% years)
   
-  plt = ggplot2::ggplot(df_sel,  ggplot2::aes(.data$Datefake, .data$Q)) +
+  plt = ggplot2::ggplot(df_sel,  ggplot2::aes(.data$Datefake,Q)) +
     ggHoriPlot::geom_horizon(origin = 'min', horizonscale = scale) +
     ggplot2::facet_wrap(~factor(.data$Year), ncol = 1, strip.position = 'left') +
     ggplot2::scale_x_date(date_labels = "%b", date_breaks = "1 month") +

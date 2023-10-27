@@ -1,4 +1,4 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
@@ -9,7 +9,7 @@ library(grwat)
 data(spas) # example Spas-Zagorye data is included with grwat package
 head(spas)
 
-## ---- echo=F, out.width='100%'------------------------------------------------
+## ----echo=F, out.width='100%'-------------------------------------------------
 knitr::include_graphics('regions.jpg')
 
 ## -----------------------------------------------------------------------------
